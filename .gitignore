@@ -1,0 +1,21 @@
+# PHP / Laravel backend
+backend/vendor/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/storage/logs/*
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/public/assets/
+backend/public/index.html
+backend/public/hot
+
+# Node / Vue frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
