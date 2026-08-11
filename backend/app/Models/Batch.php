@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['product_id', 'batch_number', 'quantity', 'expiry_date'])]
 class Batch extends Model
 {
+    protected $casts = [
+        'expiry_date' => 'datetime',
+    ];
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);

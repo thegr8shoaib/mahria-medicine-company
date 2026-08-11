@@ -19,6 +19,7 @@ const routes = [
       { path: 'inventory', name: 'inventory', component: () => import('../views/Inventory.vue'), meta: { permission: 'inventory' } },
       { path: 'purchases', name: 'purchases', component: () => import('../views/Purchases.vue'), meta: { permission: 'purchases' } },
       { path: 'users', name: 'users', component: () => import('../views/Users.vue'), meta: { admin: true } },
+      { path: 'profile', name: 'profile', component: () => import('../views/Profile.vue') },
       { path: 'customers', name: 'customers', component: () => import('../views/Customers.vue'), meta: { permission: 'customers' } },
       { path: 'reports', name: 'reports', component: () => import('../views/Reports.vue') },
     ],

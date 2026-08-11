@@ -43,7 +43,7 @@
       <button class="btn btn-sm btn-secondary" :disabled="page >= lastPage" @click="load(page + 1)">Next</button>
     </div>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
+    <div v-if="showForm" class="modal-overlay">
       <div class="modal card">
         <h3>New Purchase</h3>
         <p v-if="error" class="alert-error">{{ error }}</p>
@@ -89,7 +89,7 @@
       </div>
     </div>
 
-    <div v-if="showNewSupplier" class="modal-overlay" @click.self="showNewSupplier = false">
+    <div v-if="showNewSupplier" class="modal-overlay">
       <div class="modal modal-sm card">
         <h3>New Supplier</h3>
         <p v-if="supError" class="alert-error">{{ supError }}</p>
@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div v-if="detail" class="modal-overlay" @click.self="detail = null">
+    <div v-if="detail" class="modal-overlay">
       <div class="modal card">
         <h3>Purchase {{ detail.invoice_number }}</h3>
         <p class="muted">

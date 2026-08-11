@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal card">
       <h3>Add Batch — {{ product?.name }}</h3>
       <p v-if="error" class="alert-error">{{ error }}</p>

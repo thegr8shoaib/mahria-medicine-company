@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal card">
       <h3>Batches — {{ product?.name }}</h3>
       <div v-if="!batches.length" class="empty">No batches for this product.</div>

@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\PrintController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
@@ -16,11 +18,16 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/me', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::get('/avatar/{file}', [BackupController::class, 'avatar']);
 
     Route::prefix('products')->group(function () {
         Route::get('/', [ProductController::class, 'index']);
         Route::get('/all', [ProductController::class, 'all']);
+        Route::get('/export-excel', [ProductController::class, 'exportExcel'])->middleware('permission:inventory');
+        Route::post('/import-excel', [ProductController::class, 'importExcel'])->middleware('permission:inventory');
         Route::post('/', [ProductController::class, 'store'])->middleware('permission:inventory');
         Route::get('/{product}', [ProductController::class, 'show']);
         Route::put('/{product}', [ProductController::class, 'update'])->middleware('permission:inventory');
@@ -36,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sales/lookup/{invoice}', [SaleController::class, 'lookup'])->middleware('permission:sales');
     Route::get('/sales/{sale}', [SaleController::class, 'show'])->middleware('permission:sales');
     Route::post('/sales/{sale}/refund', [SaleController::class, 'refund'])->middleware('permission:sales');
+    Route::post('/print-receipt', [PrintController::class, 'receipt']);
 
     Route::prefix('purchases')->middleware('permission:purchases')->group(function () {
         Route::get('/', [PurchaseController::class, 'index']);
@@ -62,6 +70,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/suppliers', [SupplierController::class, 'store']);
     Route::put('/suppliers/{supplier}', [SupplierController::class, 'update']);
     Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy']);
+
+    Route::prefix('backup')->middleware(EnsureAdmin::class)->group(function () {
+        Route::post('/', [BackupController::class, 'run']);
+        Route::get('/{path}', [BackupController::class, 'download'])->where('path', '.*');
+    });
 
     Route::get('/reports/dashboard', [ReportController::class, 'dashboard']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);

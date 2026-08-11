@@ -30,16 +30,17 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="user-chip">
-          <div class="user-avatar">{{ initials }}</div>
+        <router-link to="/profile" class="user-chip">
+          <img v-if="auth.user?.avatar" :src="`/api/avatar/${encodeURIComponent(auth.user.avatar)}`" class="user-avatar-img" alt="" />
+          <div v-else class="user-avatar">{{ initials }}</div>
           <div class="user-info">
             <div class="user-name">{{ auth.user?.name }}</div>
             <div class="user-role">{{ roleLabel }}</div>
           </div>
-          <button class="logout-btn" @click="doLogout" title="Logout">
+          <button class="logout-btn" @click.prevent="doLogout" title="Logout">
             <LogOut class="icon" />
           </button>
-        </div>
+        </router-link>
       </div>
     </aside>
 
@@ -55,7 +56,7 @@
         </button>
       </header>
 
-      <div v-if="reprintOpen" class="modal-overlay" @click.self="reprintOpen = false">
+      <div v-if="reprintOpen" class="modal-overlay">
         <div class="modal card">
           <h3>Reprint Receipt</h3>
           <p class="muted" style="font-size:12.5px">Enter the receipt number, e.g. 080826-8</p>
@@ -208,6 +209,16 @@ async function doLogout() {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.user-chip:hover { background: rgba(255, 255, 255, 0.1); }
+.user-avatar-img {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 .user-avatar {
   width: 38px; height: 38px;

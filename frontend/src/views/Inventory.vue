@@ -3,7 +3,31 @@
     <div class="page-header">
       <h1>Inventory</h1>
       <div class="header-actions">
+        <button class="btn btn-secondary" :disabled="exporting" @click="exportExcel">
+          <span v-if="exporting" class="spinner spinner-dark" />
+          <template v-else><FileSpreadsheet class="icon" /> Export Excel</template>
+        </button>
+        <button class="btn btn-secondary" @click="showImport = true">
+          <Upload class="icon" /> Import Excel
+        </button>
         <button class="btn" @click="openProductModal()"><Plus /> Add Product</button>
+      </div>
+    </div>
+
+    <div v-if="showImport" class="modal-overlay">
+      <div class="modal card">
+        <h3>Import Inventory (Excel / CSV)</h3>
+        <p class="muted" style="font-size: 12.5px; line-height: 1.5">
+          Rows match existing products by <b>SKU</b> (then by exact <b>Name</b>); unknown rows are created.
+          Recognized columns: Name, SKU, Barcode, Category, Company, Generic Name, Variant, Price,
+          Cost Price, Unit, Low Stock Alert, Batch No, Expiry Date, Batch Qty.
+        </p>
+        <p v-if="importErr" class="alert-error">{{ importErr }}</p>
+        <p v-if="importMsg" class="alert-success">{{ importMsg }}</p>
+        <input ref="importInput" type="file" accept=".xlsx,.csv" class="input import-file" @change="doImport" />
+        <div class="modal-actions">
+          <button class="btn btn-secondary" :disabled="importing" @click="showImport = false">Close</button>
+        </div>
       </div>
     </div>
 
@@ -31,6 +55,7 @@
             <td>
               <div style="font-weight: 600">{{ p.name }}</div>
               <div class="muted" style="font-size: 12px">{{ p.generic_name }}</div>
+              <div class="muted" style="font-size: 11.5px" v-if="p.company">{{ p.company }}<template v-if="p.category"> · {{ p.category }}</template></div>
             </td>
             <td class="mono muted">{{ p.sku }}</td>
             <td>{{ money(p.cost_price) }}</td>
@@ -88,7 +113,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { PackagePlus, Pencil, Plus, RefreshCw, Trash2, CalendarClock } from 'lucide-vue-next'
+import { CalendarClock, FileSpreadsheet, PackagePlus, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-vue-next'
 import api from '../api/client'
 import ProductForm from '../components/ProductForm.vue'
 import BatchModal from '../components/BatchModal.vue'
@@ -106,6 +131,12 @@ const editingProduct = ref(null)
 const showBatch = ref(false)
 const selectedProduct = ref(null)
 const batchListProduct = ref(null)
+const exporting = ref(false)
+const showImport = ref(false)
+const importing = ref(false)
+const importErr = ref('')
+const importMsg = ref('')
+const importInput = ref(null)
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -161,13 +192,57 @@ async function removeProduct(p) {
   }
 }
 
+async function exportExcel() {
+  exporting.value = true
+  try {
+    const res = await api.get('/products/export-excel', { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'inventory.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert(apiMsg(e))
+  } finally {
+    exporting.value = false
+  }
+}
+
+async function doImport() {
+  const f = importInput.value?.files?.[0]
+  if (!f) return
+  importing.value = true
+  importErr.value = ''
+  importMsg.value = ''
+  const fd = new FormData()
+  fd.append('file', f)
+  try {
+    const { data } = await api.post('/products/import-excel', fd)
+    importMsg.value = data.message
+    refresh()
+  } catch (e) {
+    importErr.value = apiMsg(e)
+  } finally {
+    importing.value = false
+  }
+}
+
 onMounted(() => load())
 </script>
 
 <style scoped>
 .header-actions { display: flex; gap: 8px; }
+.header-actions .icon { width: 15px; height: 15px; }
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .muted { color: var(--muted); }
 .mono { font-family: Consolas, monospace; font-size: 12px; }
 .pagination { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 18px; }
+.import-file { padding: 9px; }
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
+  display: grid; place-items: center; z-index: 60; padding: 20px;
+}
+.modal { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
 </style>

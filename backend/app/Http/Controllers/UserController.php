@@ -11,7 +11,7 @@ class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        $users = User::orderBy('name')->get(['id', 'name', 'email', 'role', 'permissions', 'created_at']);
+        $users = User::orderBy('name')->get(['id', 'name', 'email', 'role', 'permissions', 'avatar', 'created_at']);
 
         return response()->json($users);
     }
@@ -28,7 +28,7 @@ class UserController extends Controller
             'permissions' => $data['role'] === 'admin' ? null : ($data['permissions'] ?? []),
         ]);
 
-        return response()->json(['message' => 'User created.', 'user' => $user->only(['id', 'name', 'email', 'role', 'permissions', 'created_at'])], 201);
+        return response()->json(['message' => 'User created.', 'user' => $user->only(['id', 'name', 'email', 'role', 'permissions', 'avatar', 'avatar_url', 'created_at'])], 201);
     }
 
     public function update(Request $request, User $user): JsonResponse
@@ -40,6 +40,7 @@ class UserController extends Controller
             'password' => ['sometimes', 'nullable', 'string', 'min:6'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', 'in:sales,inventory,purchases,customers'],
+            'avatar' => ['sometimes', 'nullable'],
         ]);
 
         $data = collect($validated)->filter(fn ($v) => $v !== null && $v !== '')->all();
@@ -48,6 +49,14 @@ class UserController extends Controller
             $data['password'] = bcrypt($data['password']);
         } else {
             unset($data['password']);
+        }
+
+        if ($request->hasFile('avatar')) {
+            $request->validate(['avatar' => ['image', 'mimes:jpeg,png,jpg,webp', 'max:2048']]);
+            $data['avatar'] = AuthController::storeAvatar($request->file('avatar'), $user);
+        } elseif (array_key_exists('avatar', $validated) && ($validated['avatar'] === '' || $validated['avatar'] === null)) {
+            $data['avatar'] = null;
+            AuthController::deleteAvatar($user);
         }
 
         if ($user->id === $request->user()->id && isset($data['role']) && $data['role'] !== 'admin') {
@@ -60,7 +69,7 @@ class UserController extends Controller
 
         $user->update($data);
 
-        return response()->json(['message' => 'User updated.', 'user' => $user->fresh()->only(['id', 'name', 'email', 'role', 'permissions', 'created_at'])]);
+        return response()->json(['message' => 'User updated.', 'user' => $user->fresh()->only(['id', 'name', 'email', 'role', 'permissions', 'avatar', 'avatar_url', 'created_at'])]);
     }
 
     public function destroy(Request $request, User $user): JsonResponse

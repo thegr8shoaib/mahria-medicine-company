@@ -72,7 +72,7 @@
       </div>
     </template>
 
-    <div v-if="viewSale" class="modal-overlay" @click.self="viewSale = null">
+    <div v-if="viewSale" class="modal-overlay">
       <div class="modal receipt card">
         <div class="rec-head">
           <h3>Mehria Medicine Company</h3>
@@ -92,7 +92,7 @@
         </div>
         <div class="rec-totals">
           <div class="sum-row"><span>Subtotal</span><span>{{ money(viewSale.subtotal) }}</span></div>
-          <div class="sum-row" v-if="viewSale.discount"><span>Discount</span><span>− {{ money(viewSale.discount) }}</span></div>
+          <div class="sum-row" v-if="viewSale.discount"><span>Discount ({{ discountPct(viewSale) }}%)</span><span>− {{ money(viewSale.discount) }}</span></div>
           <div class="sum-row total"><span>Total</span><span>{{ money(viewSale.total) }}</span></div>
           <div class="sum-row"><span>Paid</span><span>{{ money(viewSale.paid) }}</span></div>
           <div class="sum-row due-col" v-if="Number(viewSale.due) > 0"><span>Balance Due</span><span>{{ money(viewSale.due) }}</span></div>
@@ -100,6 +100,11 @@
         <div class="modal-actions">
           <button class="btn btn-secondary" @click="viewSale = null">Close</button>
           <button class="btn btn-sm" @click="printSale(viewSale)">Print</button>
+        </div>
+        <div class="raast" v-if="raastQr">
+          <div class="raast-title">PAY VIA RAAST ONLINE PAYMENT</div>
+          <img :src="raastQr" alt="Raast QR" class="raast-qr" />
+          <div class="raast-id">Raast ID: {{ raastId }}</div>
         </div>
       </div>
     </div>
@@ -109,7 +114,11 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import api from '../api/client'
-import { apiMsg, formatTime, money, paymentLabel, printSaleReceipt } from '../utils'
+import { apiMsg, formatTime, money, paymentLabel, printSaleReceipt, discountPct, RAAST_ID } from '../utils'
+import qrImg from '../assets/QR.png'
+
+const raastId = RAAST_ID
+const raastQr = qrImg
 
 const sales = ref([])
 const pagination = ref({})
@@ -198,4 +207,8 @@ onMounted(() => load(1))
 .rec-totals { border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 5px; }
 .sum-row { display: flex; justify-content: space-between; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+.raast { text-align: center; margin-top: 12px; }
+.raast-title { font-weight: 900; font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+.raast-qr { width: 110px; height: 110px; margin: 0 auto; background: #fff; padding: 4px; }
+.raast-id { margin-top: 4px; font-family: Consolas, monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0; white-space: nowrap; color: #111; }
 </style>

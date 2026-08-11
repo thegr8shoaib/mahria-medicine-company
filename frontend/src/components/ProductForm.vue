@@ -1,17 +1,29 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal card">
       <h3>{{ product ? 'Edit Product' : 'New Product' }}</h3>
       <p v-if="error" class="alert-error">{{ error }}</p>
-      <form @submit.prevent="save">
+      <form @submit.prevent="submit">
         <div class="form-grid">
           <div>
             <label class="label">Name *</label>
             <input v-model="form.name" class="input" required />
           </div>
           <div>
+            <label class="label">Company</label>
+            <input v-model="form.company" class="input" />
+          </div>
+          <div>
             <label class="label">Generic name</label>
             <input v-model="form.generic_name" class="input" />
+          </div>
+          <div>
+            <label class="label">Therapeutic category</label>
+            <input v-model="form.category" class="input" />
+          </div>
+          <div class="form-span">
+            <label class="label">Product line / variants</label>
+            <input v-model="form.variants" class="input" />
           </div>
           <div>
             <label class="label">SKU *</label>
@@ -76,7 +88,10 @@ const error = ref('')
 
 const form = reactive({
   name: props.product?.name || '',
+  company: props.product?.company || '',
   generic_name: props.product?.generic_name || '',
+  category: props.product?.category || '',
+  variants: props.product?.variants || '',
   sku: props.product?.sku || '',
   barcode: props.product?.barcode || '',
   price: props.product?.price || 0,
@@ -114,6 +129,7 @@ async function submit() {
 }
 .modal { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.form-span { grid-column: 1 / -1; }
 .check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; cursor: pointer; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 </style>

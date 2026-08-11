@@ -44,7 +44,7 @@
       <button class="btn btn-sm btn-secondary" :disabled="page >= lastPage" @click="load(page + 1)">Next</button>
     </div>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
+    <div v-if="showForm" class="modal-overlay">
       <div class="modal card">
         <h3>{{ editing ? 'Edit Customer' : 'New Customer' }}</h3>
         <p v-if="error" class="alert-error">{{ error }}</p>
@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <div v-if="showAccount" class="modal-overlay" @click.self="showAccount = false">
+    <div v-if="showAccount" class="modal-overlay">
       <div class="modal card account-modal">
         <h3>{{ account.name }}</h3>
         <p v-if="account.phone" class="muted">{{ account.phone }}</p>

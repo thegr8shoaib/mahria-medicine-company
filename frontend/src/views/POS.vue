@@ -130,18 +130,24 @@
       </div>
     </div>
 
-<div v-if="receipt" class="modal-overlay" @click.self="closeReceipt">
+<div v-if="receipt" class="modal-overlay">
       <div class="receipt card">
           <div class="rec-head">
           <img :src="logoUrl" alt="logo" class="rec-logo" />
-          <h3>Mehria Medicine Company</h3>
           <div class="muted">Receipt #: {{ receipt.invoice_number }}</div>
-          <div class="muted">{{ receiptDate }} · {{ paymentLabel(receipt.payment_method) }}</div>
-          <div class="muted" v-if="receipt.user">User: {{ receipt.user.name }}</div>
+          <div class="muted rec-inline"><span>{{ receiptDate }}</span><span v-if="receipt.user">User: {{ receipt.user.name }}</span></div>
+          <div class="muted rec-inline"><span>NTN: 7483331-2</span><span>Receipt No: {{ receipt.invoice_number }}</span></div>
+          <div class="muted">Licence No: 03-311-0032-101403M</div>
+          <div class="shop-line">BANGLA ROAD NEAR AGRICULTURE OFFICE, HAROONABAD</div>
+          <div class="shop-line shop-contact">
+            <span>CONTACT # 0345-2863883</span>
+            <svg viewBox="0 0 24 24" fill="#25D366" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          </div>
           <div class="muted" v-if="receipt.customer">Customer: {{ receipt.customer.name }}</div>
         </div>
         <div class="rec-items">
-          <div v-for="it in receipt.items" :key="it.id" class="rec-row">
+          <div v-for="(it, i) in receipt.items" :key="it.id" class="rec-row">
+            <div class="rec-no-col">{{ i + 1 }}</div>
             <div class="rec-info">
               <div>{{ it.product?.name }}</div>
               <div class="muted">{{ it.quantity }} × {{ money(it.unit_price) }}</div>
@@ -151,11 +157,18 @@
         </div>
         <div class="rec-totals">
           <div class="sum-row"><span>Subtotal</span><span>{{ money(receipt.subtotal) }}</span></div>
-          <div class="sum-row" v-if="receipt.discount"><span>Discount</span><span>− {{ money(receipt.discount) }}</span></div>
+          <div class="sum-row" v-if="receipt.discount"><span>Discount ({{ discountPct(receipt) }}%)</span><span>− {{ money(receipt.discount) }}</span></div>
           <div class="sum-row" v-if="receipt.tax"><span>TAX</span><span>{{ money(receipt.tax) }}</span></div>
           <div class="sum-row total"><span>Total</span><span>{{ money(receipt.total) }}</span></div>
           <div class="sum-row"><span>Paid</span><span>{{ money(receipt.paid) }}</span></div>
           <div class="sum-row" :class="{ 'rec-due': Number(receipt.due || 0) > 0 }"><span>{{ Number(receipt.due || 0) > 0 ? 'Balance Due' : 'Change' }}</span><span>{{ money(Number(receipt.due || 0) > 0 ? receipt.due : Number(receipt.paid) - Number(receipt.total)) }}</span></div>
+        </div>
+        <div class="policy policy-rtl">فریج والی اشیاء واپس نہیں ہوں گی۔</div>
+        <div class="policy policy-rtl">دوائی بل کے ساتھ 7 دن کے اندر واپس یا تبدیل کی جا سکتی ہے۔</div>
+        <div class="raast" v-if="raastQr">
+          <div class="raast-title">PAY VIA RAAST ONLINE PAYMENT</div>
+          <img :src="raastQr" alt="Raast QR" class="raast-qr" />
+          <div class="raast-id">Raast ID: {{ raastId }}</div>
         </div>
       </div>
     </div>
@@ -167,10 +180,13 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Trash2, Wallet, X } from 'lucide-vue-next'
 import api from '../api/client'
 import { useProductStore } from '../stores/products'
-import { apiMsg, money, paymentLabel, printSaleReceipt } from '../utils'
-import logoUrl from '../assets/logo.png'
+import { apiMsg, money, paymentLabel, printSaleReceipt, discountPct, RAAST_ID } from '../utils'
+import logoUrl from '../assets/thermal-logo.png'
+import qrImg from '../assets/QR.png'
 
 const products = useProductStore()
+const raastId = RAAST_ID
+const raastQr = qrImg
 const searchInput = ref(null)
 const query = ref('')
 const cart = ref([])
@@ -215,7 +231,7 @@ const discountTotal = computed(() =>
 const total = computed(() => Math.max(0, subtotal.value - discountTotal.value))
 
 onMounted(async () => {
-  products.ensureLoaded().catch(() => {})
+  products.ensureLoaded(true).catch(() => {})
   await loadCustomers()
   window.addEventListener('keydown', onKey)
 })
@@ -513,11 +529,22 @@ kbd {
 
 .receipt { width: 100%; max-width: 330px; font-size: 13px; }
 .rec-head { text-align: center; border-bottom: 1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
-.rec-logo { max-width: 90px; max-height: 70px; margin-bottom: 6px; }
+.rec-logo { width: 145px; margin-bottom: 6px; background: #fff; }
 .rec-head h3 { font-size: 16px; }
+.rec-inline { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; }
+.shop-line { font-size: 11px; font-weight: 600; line-height: 1.35; }
+.shop-contact { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.shop-contact svg { width: 12px; height: 12px; }
+.policy { text-align: center; margin-top: 8px; font-size: 11.5px; font-weight: 700; line-height: 1.5; }
+.policy-rtl { direction: rtl; unicode-bidi: embed; font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Urdu Typesetting', Tahoma, Arial, sans-serif; font-weight: 700; }
+.raast { text-align: center; margin-top: 12px; }
+.raast-title { font-weight: 900; font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+.raast-qr { width: 110px; height: 110px; margin: 0 auto; background: #fff; padding: 4px; }
+.raast-id { margin-top: 4px; font-family: Consolas, monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0; white-space: nowrap; color: #111; }
 .muted { color: var(--muted); font-size: 12px; }
 .rec-items { display: flex; flex-direction: column; margin-bottom: 10px; }
 .rec-row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; }
+.rec-no-col { width: 14px; color: var(--muted); flex-shrink: 0; }
 .rec-totals { border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 5px; }
 .rec-totals .sum-row { font-size: 13.5px; }
 .rec-totals .sum-row.total { font-weight: 700; font-size: 16px; }

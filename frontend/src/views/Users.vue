@@ -14,8 +14,14 @@
         <tbody>
           <tr v-for="u in users" :key="u.id">
             <td style="font-weight: 600">
-              {{ u.name }}
-              <span v-if="u.id === auth.user?.id" class="badge badge-blue" style="margin-left: 6px">You</span>
+              <span class="u-cell">
+                <img v-if="u.avatar" :src="`/api/avatar/${encodeURIComponent(u.avatar)}`" alt="" class="u-img" />
+                <span v-else class="u-img u-ph">?</span>
+                <span>
+                  {{ u.name }}
+                  <span v-if="u.id === auth.user?.id" class="badge badge-blue" style="margin-left: 6px">You</span>
+                </span>
+              </span>
             </td>
             <td>{{ u.email }}</td>
             <td>
@@ -47,10 +53,21 @@
       </table>
     </div>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
+    <div v-if="showForm" class="modal-overlay">
       <div class="modal card">
         <h3>{{ editing ? 'Edit User' : 'Create User' }}</h3>
         <p v-if="error" class="alert-error">{{ error }}</p>
+
+        <div v-if="editing" class="form-avatar">
+          <img v-if="formAvatarSrc" :src="formAvatarSrc" alt="" class="form-avatar-img" />
+          <div v-else class="form-avatar-img form-avatar-ph">{{ formNameShort }}</div>
+          <div class="form-avatar-actions">
+            <button class="btn btn-sm btn-secondary" type="button" @click="pickAvatar"><Upload class="icon" /> Photo</button>
+            <button v-if="form.avatar || avatarFile" class="btn btn-sm btn-secondary" type="button" @click="clearAvatar"><Trash2 class="icon" /></button>
+            <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFile" />
+          </div>
+        </div>
+
         <label class="label">Full name *</label>
         <input v-model="form.name" class="input" required />
         <label class="label" style="margin-top: 10px">Email *</label>
@@ -86,8 +103,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
+import { Pencil, Plus, Trash2, Upload } from 'lucide-vue-next'
 import api from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { apiMsg, formatDate } from '../utils'
@@ -101,6 +118,9 @@ const editing = ref(null)
 const saving = ref(false)
 const error = ref('')
 const form = ref({ name: '', email: '', password: '', role: 'cashier', permissions: ['sales', 'inventory', 'purchases', 'customers'] })
+const avatarFile = ref(null)
+const previewUrl = ref('')
+const fileInput = ref(null)
 
 const permissionOptions = [
   { key: 'sales', label: 'Sales' },
@@ -108,6 +128,14 @@ const permissionOptions = [
   { key: 'purchases', label: 'Purchases' },
   { key: 'customers', label: 'Customers' },
 ]
+
+const formAvatarSrc = computed(() => {
+  if (avatarFile.value) return previewUrl.value
+  return form.value.avatar ? `/api/avatar/${encodeURIComponent(form.value.avatar)}` : ''
+})
+const formNameShort = computed(() =>
+  (form.value.name || '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() || '?'
+)
 
 async function load() {
   loading.value = true
@@ -123,11 +151,34 @@ async function load() {
 
 function openForm(u = null) {
   editing.value = u
+  avatarFile.value = null
+  previewUrl.value = ''
   form.value = u
-    ? { name: u.name, email: u.email, password: '', role: u.role, permissions: [...(u.permissions || [])] }
-    : { name: '', email: '', password: '', role: 'cashier', permissions: ['sales', 'inventory', 'purchases', 'customers'] }
+    ? { name: u.name, email: u.email, password: '', role: u.role, permissions: [...(u.permissions || [])], avatar: u.avatar || null }
+    : { name: '', email: '', password: '', role: 'cashier', permissions: ['sales', 'inventory', 'purchases', 'customers'], avatar: null }
   error.value = ''
   showForm.value = true
+}
+
+function pickAvatar() {
+  fileInput.value?.click()
+}
+
+function onFile(e) {
+  const f = e.target.files?.[0]
+  if (!f) return
+  avatarFile.value = f
+  const reader = new FileReader()
+  reader.onload = () => {
+    previewUrl.value = reader.result
+  }
+  reader.readAsDataURL(f)
+}
+
+function clearAvatar() {
+  avatarFile.value = null
+  previewUrl.value = ''
+  form.value.avatar = null
 }
 
 function onRoleChange() {
@@ -137,12 +188,27 @@ function onRoleChange() {
 async function submit() {
   saving.value = true
   error.value = ''
-  const payload = { ...form.value }
-  if (editing.value && !payload.password) delete payload.password
-  if (payload.role === 'admin') delete payload.permissions
+  const base = { name: form.value.name, email: form.value.email, role: form.value.role }
+  if (form.value.password) base.password = form.value.password
+  if (form.value.role === 'cashier') base.permissions = form.value.permissions
+
+  const avatarChanged = !!avatarFile.value || (form.value.avatar === null && !!editing.value?.avatar)
   try {
-    if (editing.value) await api.put(`/users/${editing.value.id}`, payload)
-    else await api.post('/users', payload)
+    if (avatarChanged) {
+      const fd = new FormData()
+      for (const [k, v] of Object.entries(base)) {
+        if (Array.isArray(v)) v.forEach((x) => fd.append(k + '[]', x))
+        else fd.append(k, v)
+      }
+      if (avatarFile.value) fd.append('avatar', avatarFile.value)
+      else fd.append('avatar', '')
+      if (editing.value) await api.put(`/users/${editing.value.id}`, fd)
+      else await api.post('/users', fd)
+    } else if (editing.value) {
+      await api.put(`/users/${editing.value.id}`, base)
+    } else {
+      await api.post('/users', base)
+    }
     showForm.value = false
     load()
   } catch (e) {
@@ -167,6 +233,15 @@ onMounted(load)
 
 <style scoped>
 .muted { color: var(--muted); }
+.u-cell { display: inline-flex; align-items: center; gap: 8px; }
+.u-img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.u-ph { background: linear-gradient(135deg, #0e7490, #059669); color: #fff; font-weight: 700; display: inline-grid; place-items: center; }
+.hidden { display: none; }
+.form-avatar { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.form-avatar-img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex-shrink: 0; }
+.form-avatar-ph { background: linear-gradient(135deg, #0e7490, #059669); color: #fff; font-weight: 700; font-size: 18px; display: grid; place-items: center; }
+.form-avatar-actions { display: flex; gap: 8px; }
+.form-avatar-actions .icon { width: 14px; height: 14px; }
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
   display: grid; place-items: center; z-index: 60; padding: 20px;
