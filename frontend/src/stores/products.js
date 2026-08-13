@@ -9,10 +9,11 @@ export const useProductStore = defineStore('products', {
     error: null,
   }),
   getters: {
-    byName: (s) => (q) => {
+    byName: (s) => (q, source) => {
+      const base = source || s.list
       const term = (q || '').toLowerCase().trim()
-      if (!term) return s.list
-      return s.list.filter(
+      if (!term) return base
+      return base.filter(
         (p) =>
           (p.name || '').toLowerCase().includes(term) ||
           (p.sku || '').toLowerCase().includes(term) ||

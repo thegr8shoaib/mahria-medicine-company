@@ -4,12 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
-#[Fillable(['name', 'company', 'generic_name', 'category', 'variants', 'sku', 'barcode', 'price', 'cost_price', 'unit', 'low_stock_alert', 'is_active'])]
+#[Fillable(['name', 'company', 'company_id', 'generic_name', 'category', 'variants', 'sku', 'barcode', 'price', 'cost_price', 'unit', 'low_stock_alert', 'is_active'])]
 class Product extends Model
 {
+    public function companyModel(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
     public function batches(): HasMany
     {
         return $this->hasMany(Batch::class)->orderBy('expiry_date');

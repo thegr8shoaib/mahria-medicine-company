@@ -66,10 +66,15 @@
           <button type="button" class="btn btn-sm btn-secondary" @click="addSupplier">+ New supplier</button>
         </div>
 
+        <p v-if="selectedSupplier" class="muted" style="font-size: 13px">
+          Showing products tagged to {{ selectedSupplier.name }}
+          ({{ availableProducts.length }} of {{ products.length }}).
+        </p>
+
         <div v-for="(item, i) in form.items" :key="i" class="line-item">
           <select v-model="item.product_id" class="select" required>
             <option :value="null" disabled>Select product</option>
-            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} ({{ p.sku }})</option>
+            <option v-for="p in availableProducts" :key="p.id" :value="p.id">{{ p.name }} ({{ p.sku }})</option>
           </select>
           <input v-model="item.batch_number" class="input" placeholder="Batch #" required />
           <input v-model="item.expiry_date" type="date" class="input" required />
@@ -135,7 +140,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Eye, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
 import api from '../api/client'
 import { useProductStore } from '../stores/products'
@@ -162,6 +167,20 @@ const supError = ref('')
 const supplierForm = ref({ name: '', phone: '', email: '' })
 
 const detail = ref(null)
+
+const selectedSupplier = computed(() =>
+  suppliers.value.find((s) => s.id === form.value.supplier_id) || null
+)
+
+const availableProducts = computed(() => {
+  const list = products.value
+  if (!selectedSupplier.value) return list
+  return list.filter((p) => p.company_model?.distributor_id === selectedSupplier.value.id)
+})
+
+watch(() => form.value.supplier_id, () => {
+  form.value.items.forEach((it) => (it.product_id = null))
+})
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)

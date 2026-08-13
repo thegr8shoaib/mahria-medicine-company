@@ -17,7 +17,7 @@ cd backend
 composer install
 copy .env.example .env        # set DB_* (MySQL) or keep SQLite default
 php artisan key:generate
-php artisan migrate --seed     # creates demo users, products, suppliers, customers
+php artisan migrate --seed     # creates login users only
 php artisan serve              # http://127.0.0.1:8000
 ```
 

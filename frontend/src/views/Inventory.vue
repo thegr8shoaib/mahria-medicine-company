@@ -36,7 +36,17 @@
         <div style="position: relative; flex: 1; max-width: 340px">
           <input v-model="search" class="input" placeholder="Search products…" />
         </div>
-        <span class="badge badge-gray">{{ filtered.length }} products</span>
+        <select v-model="distributorId" class="select filter-select" @change="onDistChange">
+          <option :value="null">All Distributors</option>
+          <option v-for="d in distributors" :key="d.id" :value="d.id">{{ d.name }}</option>
+        </select>
+        <select v-model="companyId" class="select filter-select" @change="load(1)">
+          <option :value="null">All Companies</option>
+          <option v-for="c in boundCompanies" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+        <span class="badge badge-gray">{{ summary.total }} products</span>
+        <span class="badge badge-blue">{{ summary.stock.toLocaleString() }} units in stock</span>
+        <span class="badge badge-green">Stock value: {{ money(summary.value) }}</span>
       </div>
     </div>
 
@@ -121,10 +131,24 @@ import BatchesModal from '../components/BatchesModal.vue'
 import { apiMsg, money } from '../utils'
 
 const products = ref([])
+const summary = ref({ total: 0, stock: 0, value: 0 })
 const loading = ref(true)
 const search = ref('')
 const page = ref(1)
 const lastPage = ref(1)
+const distributors = ref([])
+const companies = ref([])
+const distributorId = ref(null)
+const companyId = ref(null)
+
+const boundCompanies = computed(() =>
+  companies.value.filter((c) => !distributorId.value || c.distributor_id === distributorId.value)
+)
+
+function onDistChange() {
+  companyId.value = null
+  load(1)
+}
 
 const showProduct = ref(false)
 const editingProduct = ref(null)
@@ -152,10 +176,19 @@ const filtered = computed(() => {
 async function load(p = 1) {
   loading.value = true
   try {
-    const res = await api.get('/products', { params: { page: p, per_page: 20, search: search.value.trim() || undefined } })
+    const res = await api.get('/products', {
+      params: {
+        page: p,
+        per_page: 20,
+        search: search.value.trim() || undefined,
+        distributor_id: distributorId.value || undefined,
+        company_id: companyId.value || undefined,
+      },
+    })
     products.value = res.data.data
     page.value = res.data.current_page
     lastPage.value = res.data.last_page
+    summary.value = res.data.summary || { total: res.data.data.length, stock: 0, value: 0 }
   } catch (e) {
     alert(apiMsg(e))
   } finally {
@@ -228,13 +261,21 @@ async function doImport() {
   }
 }
 
-onMounted(() => load())
+onMounted(() => {
+  const q = new URLSearchParams(location.hash.split('?')[1] || '')
+  distributorId.value = q.get('distributor_id') ? Number(q.get('distributor_id')) : null
+  companyId.value = q.get('company_id') ? Number(q.get('company_id')) : null
+  load()
+  api.get('/suppliers').then((r) => (distributors.value = r.data)).catch(() => {})
+  api.get('/companies').then((r) => (companies.value = r.data)).catch(() => {})
+})
 </script>
 
 <style scoped>
 .header-actions { display: flex; gap: 8px; }
 .header-actions .icon { width: 15px; height: 15px; }
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.filter-select { max-width: 260px; }
 .muted { color: var(--muted); }
 .mono { font-family: Consolas, monospace; font-size: 12px; }
 .pagination { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 18px; }

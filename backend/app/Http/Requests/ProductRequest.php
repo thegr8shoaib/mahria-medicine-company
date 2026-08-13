@@ -17,6 +17,7 @@ class ProductRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'company' => ['nullable', 'string', 'max:255'],
+            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'generic_name' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:255'],
             'variants' => ['nullable', 'string'],

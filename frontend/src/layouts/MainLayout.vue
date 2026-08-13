@@ -2,6 +2,10 @@
   <div class="layout">
     <div class="nav-overlay" :class="{ show: mobileOpen }" @click="mobileOpen = false" />
     <aside class="nav-sidebar" :class="{ open: mobileOpen }">
+      <div class="sidebar-brand">
+        <img :src="logoUrl" alt="Mehria Medicine Company" class="sidebar-logo" />
+        <span class="sidebar-title">Mehria Medicine</span>
+      </div>
 <nav class="nav-links">
       <router-link to="/pos" class="nav-link" @click="mobileOpen = false">
           <ShoppingCart class="icon" /> POS
@@ -21,8 +25,14 @@
         <router-link v-if="auth.can('customers')" to="/customers" class="nav-link" @click="mobileOpen = false">
           <Users class="icon" /> Customers
         </router-link>
+        <router-link to="/distributors" class="nav-link" @click="mobileOpen = false">
+          <Building2 class="icon" /> Distributors
+        </router-link>
         <router-link to="/reports" class="nav-link" @click="mobileOpen = false">
           <BarChart3 class="icon" /> Reports
+        </router-link>
+        <router-link v-if="auth.isAdmin" to="/backups" class="nav-link" @click="mobileOpen = false">
+          <Database class="icon" /> Data Backup
         </router-link>
         <router-link v-if="auth.isAdmin" to="/users" class="nav-link" @click="mobileOpen = false">
           <UserCog class="icon" /> Users
@@ -88,17 +98,20 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  BarChart3, Boxes, LayoutDashboard, LogOut, Menu, Printer, Receipt,
+  BarChart3, Boxes, Building2, Database, LayoutDashboard, LogOut, Menu, Printer, Receipt,
   ShoppingCart, Truck, UserCog, Users,
 } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
+import { useProductStore } from '../stores/products'
 import api from '../api/client'
 import { apiMsg, money, printSaleReceipt } from '../utils'
+import logoUrl from '../assets/logo.png'
 
 const auth = useAuthStore()
+const products = useProductStore()
 const router = useRouter()
 const route = useRoute()
 const mobileOpen = ref(false)
@@ -107,6 +120,10 @@ const reprintNo = ref('')
 const reprintErr = ref('')
 const reprintSale = ref(null)
 const reprintLoading = ref(false)
+
+onMounted(() => {
+  products.ensureLoaded().catch(() => {})
+})
 
 const initials = computed(() =>
   (auth.user?.name || '')
@@ -180,6 +197,13 @@ async function doLogout() {
 }
 
 .nav-links { flex: 1; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+.sidebar-logo { width: 38px; height: 38px; object-fit: contain; border-radius: 9px; background: #fff; padding: 2px; }
+.sidebar-title { color: #fff; font-weight: 700; font-size: 14.5px; }
 .nav-link {
   display: flex; align-items: center; gap: 11px;
   padding: 11px 14px;

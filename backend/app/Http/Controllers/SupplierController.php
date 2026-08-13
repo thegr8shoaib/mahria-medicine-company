@@ -10,7 +10,13 @@ class SupplierController extends Controller
 {
     public function index(): JsonResponse
     {
-        $suppliers = Supplier::withCount('purchases')->orderBy('name')->get();
+        $suppliers = Supplier::withCount('purchases')
+            ->withCount('companies')
+            ->withCount([
+                'companies as company_products_count' => fn ($q) => $q->join('products', 'products.company_id', '=', 'companies.id'),
+            ])
+            ->orderBy('name')
+            ->get();
 
         return response()->json($suppliers);
     }

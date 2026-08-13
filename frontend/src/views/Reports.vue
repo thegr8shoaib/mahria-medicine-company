@@ -18,19 +18,7 @@
     <div v-if="loading" class="card loading"><span class="spinner spinner-dark" /></div>
 
     <template v-else>
-      <div v-if="exportsLoading" class="loading"><span class="spinner spinner-dark" /></div>
-
-    <div v-else class="card exports-card">
-      <h3 style="margin-bottom: 6px">Excel Exports</h3>
-      <p class="exports-hint">Download live store data as Excel files.</p>
-      <div class="export-btns">
-        <button v-for="e in exportSheets" :key="e.key" class="btn" @click="exportXlsx(e.key, e.label)">
-          {{ e.label }}
-        </button>
-      </div>
-    </div>
-
-    <div class="grid grid-4 stats">
+      <div class="grid grid-4 stats">
         <div class="card stat">
           <div class="stat-label">Revenue</div>
           <div class="stat-value">{{ money(totals.revenue) }}</div>
@@ -142,46 +130,10 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import * as XLSX from 'xlsx'
 import api from '../api/client'
-import { useAuthStore } from '../stores/auth'
 import { apiMsg, formatTime, money, paymentLabel } from '../utils'
 
 const auth = useAuthStore()
-
-const exportSheets = [
-  { key: 'products', label: 'Products & Stock' },
-  { key: 'batches', label: 'Batches & Expiry' },
-  { key: 'suppliers', label: 'Suppliers' },
-  { key: 'customers', label: 'Customers' },
-  { key: 'sales', label: 'Sales' },
-]
-const exportsData = ref(null)
-const exportsLoading = ref(false)
-
-async function loadExports() {
-  exportsLoading.value = true
-  try {
-    exportsData.value = (await api.get('/reports/exports')).data
-  } catch (e) {
-    alert(apiMsg(e))
-  } finally {
-    exportsLoading.value = false
-  }
-}
-
-function exportXlsx(key, label) {
-  if (!exportsData.value) return
-  const rows = exportsData.value[key] || []
-  if (!rows.length) {
-    alert('No data to export for ' + label + '.')
-    return
-  }
-  const ws = XLSX.utils.json_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31))
-  XLSX.writeFile(wb, `${label.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`)
-}
 
 const ranges = [
   { days: 7, label: '7 Days' },
@@ -271,16 +223,12 @@ function setRange(r) {
 onMounted(() => {
   loadSummary()
   loadDay()
-  loadExports()
   loadMySales()
 })
 </script>
 
 <style scoped>
 .range-controls { display: flex; gap: 6px; flex-wrap: wrap; }
-.exports-card { padding: 18px; }
-.exports-hint { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
-.export-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .stats .stat { padding: 18px; }
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .stat-value { font-size: 21px; font-weight: 700; margin: 4px 0 2px; }

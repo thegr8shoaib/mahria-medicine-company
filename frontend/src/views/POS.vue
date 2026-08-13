@@ -14,6 +14,17 @@
         <button v-if="query" class="icon-btn" @click="query = ''"><X /></button>
       </div>
 
+      <div class="pos-filters">
+        <select v-model="distributorId" class="select filter-select" @change="companyId = null">
+          <option :value="null">All Distributors</option>
+          <option v-for="d in distributors" :key="d.id" :value="d.id">{{ d.name }}</option>
+        </select>
+        <select v-model="companyId" class="select filter-select">
+          <option :value="null">All Companies</option>
+          <option v-for="c in boundCompanies" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+
       <div v-if="products.loading" class="loading"><span class="spinner spinner-dark" /></div>
 
       <div class="product-grid" v-else-if="filtered.length">
@@ -197,11 +208,26 @@ const paying = ref(false)
 const error = ref('')
 const customers = ref([])
 const receipt = ref(null)
+const distributors = ref([])
+const companies = ref([])
+const distributorId = ref(null)
+const companyId = ref(null)
+
+const boundCompanies = computed(() =>
+  companies.value.filter((c) => !distributorId.value || c.distributor_id === distributorId.value)
+)
 
 const filtered = computed(() => {
+  let list = products.list
+  if (distributorId.value) {
+    list = list.filter((p) => p.company_model?.distributor_id === distributorId.value)
+  }
+  if (companyId.value) {
+    list = list.filter((p) => p.company_model?.id === companyId.value)
+  }
   const term = query.value.trim()
-  if (!term) return products.list.slice(0, 30)
-  return products.byName(term).slice(0, 30)
+  if (!term) return list.slice(0, 30)
+  return products.byName(term, list).slice(0, 30)
 })
 
 const selectedCustomer = computed(() =>
@@ -231,8 +257,10 @@ const discountTotal = computed(() =>
 const total = computed(() => Math.max(0, subtotal.value - discountTotal.value))
 
 onMounted(async () => {
-  products.ensureLoaded(true).catch(() => {})
+  products.ensureLoaded().catch(() => {})
   await loadCustomers()
+  api.get('/suppliers').then((r) => (distributors.value = r.data)).catch(() => {})
+  api.get('/companies').then((r) => (companies.value = r.data)).catch(() => {})
   window.addEventListener('keydown', onKey)
 })
 
@@ -374,7 +402,6 @@ function resetSale(sale, { silent = false } = {}) {
   received.value = 0
   products.invalidate()
   products.ensureLoaded(true)
-  loadCustomers()
 }
 
 async function loadCustomers() {
@@ -405,6 +432,8 @@ function closeReceipt() {
 .pos-search .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
 .pos-search .input { padding-left: 38px; padding-right: 38px; }
 .pos-search .icon-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+.pos-filters { display: flex; gap: 10px; margin-bottom: 14px; }
+.pos-filters .filter-select { max-width: 240px; }
 
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; overflow-y: auto; max-height: 640px; padding: 2px; }
 .product-tile {

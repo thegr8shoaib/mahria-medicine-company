@@ -67,6 +67,88 @@ class Xlsx
         return $tmp;
     }
 
+    public static function exportSheets(array $sheets): string
+    {
+        $esc = static fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        $used = [];
+        $parts = [];
+        $sheetTags = '';
+        $rels = '';
+        $types = '';
+        foreach ($sheets as $i => $sheet) {
+            $name = trim((string) ($sheet['name'] ?? 'Sheet' . ($i + 1)));
+            $name = preg_replace('/[\\\\\/\?\*\[\]:]/', ' ', $name) ?: 'Sheet';
+            $name = mb_substr($name, 0, 31);
+            $base = $name;
+            $n = 2;
+            while (in_array(mb_strtolower($name), $used, true)) {
+                $name = mb_substr($base, 0, 27) . ' ' . $n++;
+            }
+            $used[] = mb_strtolower($name);
+
+            $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+            $xml .= '<row r="1">';
+            foreach ($sheet['headers'] ?? [] as $h) {
+                $xml .= "<c t=\"inlineStr\"><is><t>{$esc($h)}</t></is></c>";
+            }
+            $xml .= '</row>';
+            foreach ($sheet['rows'] ?? [] as $ri => $row) {
+                $xml .= '<row r="' . ($ri + 2) . '">';
+                foreach ($row as $v) {
+                    if (is_numeric($v)) {
+                        $xml .= "<c><v>{$esc($v)}</v></c>";
+                    } else {
+                        $xml .= "<c t=\"inlineStr\"><is><t>{$esc($v)}</t></is></c>";
+                    }
+                }
+                $xml .= '</row>';
+            }
+            $xml .= '</sheetData></worksheet>';
+
+            $parts[$i] = $xml;
+            $sheetNo = $i + 1;
+            $sheetTags .= "<sheet name=\"" . $esc($name) . "\" sheetId=\"{$sheetNo}\" r:id=\"rId{$sheetNo}\"/>";
+            $rels .= '<Relationship Id="rId' . $sheetNo . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' . $sheetNo . '.xml"/>';
+            $types .= '<Override PartName="/xl/worksheets/sheet' . $sheetNo . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+        }
+
+        $contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . $types . '</Types>';
+
+        $rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            . '</Relationships>';
+
+        $workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheets>' . $sheetTags . '</sheets></workbook>';
+
+        $workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . $rels . '</Relationships>';
+
+        $tmp = tempnam(sys_get_temp_dir(), 'xlsx') . '.xlsx';
+        $zip = new ZipArchive();
+        $zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', $contentTypes);
+        $zip->addFromString('_rels/.rels', $rootRels);
+        $zip->addFromString('xl/workbook.xml', $workbook);
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $workbookRels);
+        foreach ($parts as $i => $xml) {
+            $zip->addFromString('xl/worksheets/sheet' . ($i + 1) . '.xml', $xml);
+        }
+        $zip->close();
+
+        return $tmp;
+    }
+
     public static function parseCsv(string $path): array
     {
         $handle = fopen($path, 'r');
@@ -87,6 +169,83 @@ class Xlsx
         fclose($handle);
 
         return $rows;
+    }
+
+    public static function parseSheets(string $path): array
+    {
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) {
+            throw new \RuntimeException('Could not open the .xlsx file.');
+        }
+
+        $names = [];
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        if ($workbook !== false) {
+            $wx = new \SimpleXMLElement($workbook);
+            foreach ($wx->sheets->sheet as $s) {
+                $names[] = (string) $s['name'];
+            }
+        }
+
+        $shared = [];
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+        if ($sharedXml !== false) {
+            $sx = new \SimpleXMLElement($sharedXml);
+            foreach ($sx->si as $si) {
+                $parts = [];
+                foreach ($si->t as $t) {
+                    $parts[] = (string) $t;
+                }
+                $shared[] = implode('', $parts);
+            }
+        }
+
+        $sheets = [];
+        foreach ($names as $i => $name) {
+            $sheetXml = $zip->getFromName('xl/worksheets/sheet' . ($i + 1) . '.xml');
+            if ($sheetXml === false) {
+                continue;
+            }
+            $xml = new \SimpleXMLElement($sheetXml);
+            $rows = [];
+            foreach ($xml->sheetData->row as $rowEl) {
+                $row = [];
+                $colSeq = 0;
+                foreach ($rowEl->c as $c) {
+                    $ref = (string) $c['r'];
+                    $col = $ref !== '' ? self::colIndex($ref) : $colSeq;
+                    $colSeq++;
+                    $type = (string) $c['t'];
+                    $raw = trim((string) $c->v);
+                    if ($type === 's') {
+                        $val = $shared[(int) $raw] ?? '';
+                    } elseif ($type === 'inlineStr') {
+                        $val = (string) $c->is->t;
+                    } elseif ($type === 'str') {
+                        $val = $raw;
+                    } else {
+                        $val = $raw !== '' ? $raw + 0 : '';
+                    }
+                    $row[$col] = $val;
+                }
+                if ($row) {
+                    $rows[] = $row;
+                }
+            }
+            $headers = array_shift($rows) ?? [];
+            $named = [];
+            foreach ($rows as $row) {
+                $out = [];
+                foreach ($headers as $idx => $h) {
+                    $out[(string) $h] = $row[$idx] ?? '';
+                }
+                $named[] = $out;
+            }
+            $sheets[$name] = $named;
+        }
+        $zip->close();
+
+        return $sheets;
     }
 
     public static function parseXlsx(string $path): array

@@ -53,32 +53,13 @@
           </button>
         </div>
       </div>
-
-      <div v-if="auth.isAdmin" class="card">
-        <h3>Data Backup <span v-if="!auth.isAdmin" class="muted">(admin only)</span></h3>
-        <p class="muted" style="font-size: 12.5px; line-height: 1.5">
-          Creates a full snapshot of the database plus settings and stores it on this computer.
-          Older backups are kept automatically (latest 10).
-        </p>
-        <div class="modal-actions">
-          <button class="btn" :disabled="backingUp" @click="createBackup">
-            <span v-if="backingUp" class="spinner" />
-            <template v-else><DatabaseBackup class="icon" /> Create Backup</template>
-          </button>
-          <button v-if="lastBackup" class="btn btn-secondary" :disabled="downloading" @click="downloadBackup">
-            <span v-if="downloading" class="spinner" /> Download
-          </button>
-        </div>
-        <p v-if="backupInfo" class="alert-success" style="margin-top: 10px">Backup created: {{ backupInfo.folder }} ({{ sizeLabel }})</p>
-        <p v-if="backupErr" class="alert-error">{{ backupErr }}</p>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { DatabaseBackup, Trash2, Upload } from 'lucide-vue-next'
+import { Trash2, Upload } from 'lucide-vue-next'
 import api from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { apiMsg } from '../utils'
@@ -95,15 +76,10 @@ const pw = ref({ current_password: '', password: '', password_confirmation: '' }
 
 const saving = ref(false)
 const savingPw = ref(false)
-const backingUp = ref(false)
-const downloading = ref(false)
 const error = ref('')
 const okmsg = ref('')
 const pwError = ref('')
 const pwMsg = ref('')
-const backupErr = ref('')
-const backupInfo = ref(null)
-const lastBackup = ref(null)
 
 const avatarSrc = computed(() => (avatar.value ? `/api/avatar/${encodeURIComponent(avatar.value)}` : null))
 const initials = computed(() =>
@@ -114,11 +90,6 @@ const initials = computed(() =>
     .join('')
     .toUpperCase()
 )
-const sizeLabel = computed(() => {
-  if (!backupInfo.value) return ''
-  const kb = backupInfo.value.size / 1024
-  return kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb.toFixed(0) + ' KB'
-})
 
 onMounted(() => {
   form.value = { name: auth.user?.name || '', email: auth.user?.email || '' }
@@ -188,39 +159,6 @@ async function savePassword() {
     pwError.value = apiMsg(e)
   } finally {
     savingPw.value = false
-  }
-}
-
-async function createBackup() {
-  backingUp.value = true
-  backupErr.value = ''
-  backupInfo.value = null
-  try {
-    const { data } = await api.post('/backup')
-    backupInfo.value = data
-    lastBackup.value = data.file
-  } catch (e) {
-    backupErr.value = apiMsg(e)
-  } finally {
-    backingUp.value = false
-  }
-}
-
-async function downloadBackup() {
-  if (!lastBackup.value) return
-  downloading.value = true
-  try {
-    const res = await api.get(`/backup/${lastBackup.value}`, { responseType: 'blob' })
-    const url = URL.createObjectURL(res.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'mahria-backup.sqlite'
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch (e) {
-    backupErr.value = apiMsg(e)
-  } finally {
-    downloading.value = false
   }
 }
 </script>

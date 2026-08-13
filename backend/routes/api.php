@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\PrintController;
 use App\Http\Controllers\ProductController;
@@ -71,8 +72,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/suppliers/{supplier}', [SupplierController::class, 'update']);
     Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy']);
 
+    Route::get('/companies', [CompanyController::class, 'index']);
+    Route::post('/companies', [CompanyController::class, 'store']);
+    Route::put('/companies/{company}', [CompanyController::class, 'update']);
+    Route::delete('/companies/{company}', [CompanyController::class, 'destroy']);
+
     Route::prefix('backup')->middleware(EnsureAdmin::class)->group(function () {
+        Route::get('/', [BackupController::class, 'index']);
         Route::post('/', [BackupController::class, 'run']);
+        Route::post('/export-excel', [BackupController::class, 'exportExcel']);
+        Route::post('/restore', [BackupController::class, 'restore']);
+        Route::post('/delete', [BackupController::class, 'delete']);
         Route::get('/{path}', [BackupController::class, 'download'])->where('path', '.*');
     });
 
@@ -80,7 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/summary', [ReportController::class, 'summary']);
     Route::get('/reports/top-products', [ReportController::class, 'topProducts']);
     Route::get('/reports/sales-by-date', [ReportController::class, 'salesByDate']);
-    Route::get('/reports/exports', [ReportController::class, 'export']);
+    Route::get('/reports/exports', [ReportController::class, 'export'])->middleware(EnsureAdmin::class);
 });
 
 Route::get('/user', function (Request $request) {

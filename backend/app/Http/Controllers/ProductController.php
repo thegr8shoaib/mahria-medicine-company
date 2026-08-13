@@ -32,17 +32,46 @@ class ProductController extends Controller
             $query->where('category', $request->category);
         }
 
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->integer('company_id'));
+        }
+
+        if ($request->filled('distributor_id')) {
+            $query->whereHas('companyModel', fn ($q) => $q->where('distributor_id', $request->integer('distributor_id')));
+        }
+
+        $summary = (clone $query)
+            ->select('id', 'price')
+            ->withSum('batches as stock', 'quantity')
+            ->get();
+
         $products = $query->latest()->paginate((int) ($request->get('per_page', 15)));
 
-        return response()->json($products);
+        $data = $products->toArray();
+        $data['summary'] = [
+            'total' => $summary->count(),
+            'stock' => (int) $summary->sum('stock'),
+            'value' => round($summary->sum(fn ($p) => $p->stock * (float) $p->price), 2),
+        ];
+
+        return response()->json($data);
     }
 
-    public function all(): JsonResponse
+    public function all(Request $request): JsonResponse
     {
-        $products = Product::withSum('batches as stock', 'quantity')
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $query = Product::withSum('batches as stock', 'quantity')
+            ->with('companyModel:id,name,distributor_id')
+            ->where('is_active', true);
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->integer('company_id'));
+        }
+
+        if ($request->filled('distributor_id')) {
+            $query->whereHas('companyModel', fn ($q) => $q->where('distributor_id', $request->integer('distributor_id')));
+        }
+
+        $products = $query->orderBy('name')->get();
 
         return response()->json($products);
     }

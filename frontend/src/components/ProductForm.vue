@@ -10,8 +10,19 @@
             <input v-model="form.name" class="input" required />
           </div>
           <div>
-            <label class="label">Company</label>
-            <input v-model="form.company" class="input" />
+            <label class="label">Company (manufacturer)</label>
+            <input v-model="form.company" class="input" list="company-list" @change="syncCompany" />
+            <datalist id="company-list">
+              <option v-for="c in companies" :key="c.id" :value="c.name" />
+            </datalist>
+          </div>
+          <div>
+            <label class="label">Distributor (seller)</label>
+            <select v-model="distributorId" class="select" @change="onDistChange">
+              <option :value="null">— None —</option>
+              <option v-for="d in distributors" :key="d.id" :value="d.id">{{ d.name }}</option>
+            </select>
+            <p v-if="rebindHint" class="rebind-hint">{{ rebindHint }}</p>
           </div>
           <div>
             <label class="label">Generic name</label>
@@ -74,7 +85,7 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import api from '../api/client'
 import { apiMsg } from '../utils'
 
@@ -85,6 +96,22 @@ const emit = defineEmits(['close', 'saved'])
 
 const saving = ref(false)
 const error = ref('')
+const distributors = ref([])
+const companies = ref([])
+const distributorId = ref(null)
+
+const boundCompanies = computed(() =>
+  companies.value.filter((c) => !distributorId.value || c.distributor_id === distributorId.value)
+)
+
+const rebindHint = computed(() => {
+  const typed = form.company.trim()
+  if (!typed || !distributorId.value) return ''
+  const existing = companies.value.find((c) => c.name.toLowerCase() === typed.toLowerCase())
+  if (!existing || existing.distributor_id === distributorId.value) return ''
+  const target = distributors.value.find((d) => d.id === distributorId.value)
+  return `"${existing.name}" (and its ${existing.products_count || 0} products) will move to ${target?.name || 'new distributor'} on save.`
+})
 
 const form = reactive({
   name: props.product?.name || '',
@@ -101,14 +128,45 @@ const form = reactive({
   is_active: props.product ? Boolean(props.product.is_active) : true,
 })
 
+function syncCompany() {
+  const match = boundCompanies.value.find((c) => c.name.toLowerCase() === form.company.trim().toLowerCase())
+  if (match) distributorId.value = match.distributor_id
+}
+
+function onDistChange() {
+  const match = boundCompanies.value.find((c) => c.name.toLowerCase() === form.company.trim().toLowerCase())
+  if (match) form.company = match.name
+}
+
 async function submit() {
   saving.value = true
   error.value = ''
   try {
+    let companyId = null
+    const typed = form.company.trim()
+    if (typed) {
+      const existing = companies.value.find((c) => c.name.toLowerCase() === typed.toLowerCase())
+      if (existing) {
+        companyId = existing.id
+        form.company = existing.name
+        if (distributorId.value && existing.distributor_id !== distributorId.value) {
+          await api.put(`/companies/${existing.id}`, { distributor_id: distributorId.value })
+          existing.distributor_id = distributorId.value
+        }
+      } else if (distributorId.value) {
+        const res = await api.post('/companies', {
+          name: typed,
+          distributor_id: distributorId.value,
+        })
+        companyId = res.data.company.id
+        companies.value.push(res.data.company)
+      }
+    }
+    const payload = { ...form, company_id: companyId }
     if (props.product) {
-      await api.put(`/products/${props.product.id}`, form)
+      await api.put(`/products/${props.product.id}`, payload)
     } else {
-      await api.post('/products', form)
+      await api.post('/products', payload)
     }
     emit('saved')
     emit('close')
@@ -118,6 +176,17 @@ async function submit() {
     saving.value = false
   }
 }
+
+onMounted(async () => {
+  try {
+    const [d, c] = await Promise.all([api.get('/suppliers'), api.get('/companies')])
+    distributors.value = d.data
+    companies.value = c.data
+    if (props.product?.company) syncCompany()
+  } catch (e) {
+    /* optional metadata; form still works */
+  }
+})
 </script>
 
 <style scoped>
@@ -127,9 +196,10 @@ async function submit() {
   display: grid; place-items: center;
   z-index: 60; padding: 20px;
 }
-.modal { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+.modal { width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 4px 2px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .form-span { grid-column: 1 / -1; }
+.rebind-hint { margin-top: 6px; font-size: 12px; color: var(--danger, #dc2626); font-weight: 600; line-height: 1.4; }
 .check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; cursor: pointer; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 </style>

@@ -1,66 +1,57 @@
 <template>
   <div class="login-wrap">
-    <div class="login-card card">
-      <div class="login-brand">
-        <div class="logo">
-          <Pill :size="26" />
+<div class="login-card card">
+        <div class="login-brand">
+          <img :src="logoUrl" alt="Mehria Medicine Company" class="brand-logo" />
+          <h1>Mehria Medicine Company</h1>
         </div>
-        <h1>Mehria Medicine Company</h1>
-        <p>Pharmacy Point of Sale System</p>
+
+        <form @submit.prevent="submit" v-if="!loading" novalidate>
+          <label class="label" for="email">Email</label>
+          <input
+            id="email"
+            v-model.trim="email"
+            type="email"
+            class="input"
+            placeholder="Enter your email"
+            autocomplete="username"
+            required
+          />
+          <label class="label" for="password" style="margin-top: 14px">Password</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            class="input"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          />
+
+          <p v-if="error" class="alert-error" style="margin-top: 14px">{{ error }}</p>
+
+          <button type="submit" class="btn" style="width: 100%; margin-top: 18px" :disabled="submitting">
+            <span v-if="submitting" class="spinner" />
+            Sign In
+          </button>
+        </form>
+
+        <div v-if="loading" class="loading">Checking session…</div>
       </div>
-
-      <form @submit.prevent="submit" v-if="!loading" novalidate>
-        <label class="label" for="email">Email</label>
-        <input
-          id="email"
-          v-model.trim="email"
-          type="email"
-          class="input"
-          placeholder="admin@pharmacy.test"
-          autocomplete="username"
-          required
-        />
-        <label class="label" for="password" style="margin-top: 14px">Password</label>
-        <input
-          id="password"
-          v-model="password"
-          type="password"
-          class="input"
-          placeholder="••••••••"
-          autocomplete="current-password"
-          required
-        />
-
-        <p v-if="error" class="alert-error" style="margin-top: 14px">{{ error }}</p>
-
-        <button type="submit" class="btn" style="width: 100%; margin-top: 18px" :disabled="submitting">
-          <span v-if="submitting" class="spinner" />
-          Sign In
-        </button>
-      </form>
-
-      <div v-if="loading" class="loading">Checking session…</div>
-
-      <div class="demo-hint">
-        <strong>Demo accounts</strong>
-        <span>admin@pharmacy.test / cashier@pharmacy.test</span>
-        <span>Password: <code>password</code></span>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Pill } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { apiMsg } from '../utils'
+import logoUrl from '../assets/logo.png'
 
 const auth = useAuthStore()
 const router = useRouter()
-const email = ref('admin@pharmacy.test')
-const password = ref('password')
+const email = ref('')
+const password = ref('')
 const submitting = ref(false)
 const error = ref('')
 const loading = ref(false)
@@ -96,28 +87,14 @@ async function submit() {
 }
 .login-card { width: 100%; max-width: 390px; padding: 32px; }
 .login-brand { text-align: center; margin-bottom: 24px; }
-.logo {
-  width: 58px; height: 58px;
-  margin: 0 auto 12px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #0e7490, #059669);
-  color: #fff;
-  display: grid; place-items: center;
+.brand-logo {
+  width: 96px; height: 96px;
+  object-fit: contain;
+  margin: 0 auto 14px;
+  border-radius: 20px;
+  background: #fff;
   box-shadow: var(--shadow-lg);
+  padding: 6px;
 }
 .login-brand h1 { font-size: 21px; }
-.login-brand p { color: var(--muted); font-size: 13px; margin-top: 3px; }
-.demo-hint {
-  margin-top: 22px;
-  padding: 12px;
-  background: var(--bg);
-  border-radius: 10px;
-  font-size: 12px;
-  color: var(--muted);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  text-align: center;
-}
-.demo-hint strong { color: var(--text); }
 </style>
