@@ -49,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('purchases')->middleware('permission:purchases')->group(function () {
         Route::get('/', [PurchaseController::class, 'index']);
         Route::post('/', [PurchaseController::class, 'store']);
+        Route::put('/{purchase}', [PurchaseController::class, 'update']);
         Route::get('/{purchase}', [PurchaseController::class, 'show']);
         Route::delete('/{purchase}', [PurchaseController::class, 'destroy']);
     });

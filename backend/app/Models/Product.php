@@ -8,9 +8,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
-#[Fillable(['name', 'company', 'company_id', 'generic_name', 'category', 'variants', 'sku', 'barcode', 'price', 'cost_price', 'unit', 'low_stock_alert', 'is_active'])]
+#[Fillable(['name', 'company', 'company_id', 'generic_name', 'category', 'variants', 'sku', 'barcode', 'price', 'trade_price', 'cost_price', 'unit', 'items_per_pack', 'low_stock_alert', 'is_active'])]
 class Product extends Model
 {
+    protected $appends = ['is_pack', 'sale_unit'];
+
+    public function getIsPackAttribute(): bool
+    {
+        return (int) ($this->items_per_pack ?? 0) > 0;
+    }
+
+    public function getSaleUnitAttribute(): string
+    {
+        return $this->is_pack ? 'item' : (string) $this->unit;
+    }
+
+    public function packQuantity(int $packs): int
+    {
+        return $packs * (int) ($this->items_per_pack ?? 1);
+    }
     public function companyModel(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'company_id');

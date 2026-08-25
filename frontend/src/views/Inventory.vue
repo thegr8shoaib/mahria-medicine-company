@@ -35,6 +35,7 @@
       <div class="toolbar">
         <div style="position: relative; flex: 1; max-width: 340px">
           <input v-model="search" class="input" placeholder="Search products…" />
+          <button v-if="search" class="search-clear" @click="search = ''"><X /></button>
         </div>
         <select v-model="distributorId" class="select filter-select" @change="onDistChange">
           <option :value="null">All Distributors</option>
@@ -66,6 +67,9 @@
               <div style="font-weight: 600">{{ p.name }}</div>
               <div class="muted" style="font-size: 12px">{{ p.generic_name }}</div>
               <div class="muted" style="font-size: 11.5px" v-if="p.company">{{ p.company }}<template v-if="p.category"> · {{ p.category }}</template></div>
+              <div class="muted" style="font-size: 11.5px" v-if="Number(p.items_per_pack) > 0">
+                Sold per item · 1 pack = {{ p.items_per_pack }} items
+              </div>
             </td>
             <td class="mono muted">{{ p.sku }}</td>
             <td>{{ money(p.cost_price) }}</td>
@@ -122,13 +126,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { CalendarClock, FileSpreadsheet, PackagePlus, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { CalendarClock, FileSpreadsheet, PackagePlus, Pencil, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-vue-next'
 import api from '../api/client'
 import ProductForm from '../components/ProductForm.vue'
 import BatchModal from '../components/BatchModal.vue'
 import BatchesModal from '../components/BatchesModal.vue'
+import { useProductStore } from '../stores/products'
 import { apiMsg, money } from '../utils'
+
+const productsStore = useProductStore()
 
 const products = ref([])
 const summary = ref({ total: 0, stock: 0, value: 0 })
@@ -169,9 +176,17 @@ const filtered = computed(() => {
     (p) =>
       p.name.toLowerCase().includes(q) ||
       (p.sku || '').toLowerCase().includes(q) ||
+      (p.barcode || '').toLowerCase().includes(q) ||
       (p.generic_name || '').toLowerCase().includes(q)
   )
 })
+
+let searchTimer = null
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => load(1), 350)
+})
+onBeforeUnmount(() => clearTimeout(searchTimer))
 
 async function load(p = 1) {
   loading.value = true
@@ -213,12 +228,13 @@ function openBatchModal(p) {
 function openBatches(p) {
   batchListProduct.value = p
 }
-function onSaved() { refresh() }
+function onSaved() { productsStore.invalidate(); refresh() }
 
 async function removeProduct(p) {
   if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return
   try {
     await api.delete(`/products/${p.id}`)
+    productsStore.invalidate()
     refresh()
   } catch (e) {
     alert(apiMsg(e))
@@ -253,6 +269,7 @@ async function doImport() {
   try {
     const { data } = await api.post('/products/import-excel', fd)
     importMsg.value = data.message
+    productsStore.invalidate()
     refresh()
   } catch (e) {
     importErr.value = apiMsg(e)
@@ -276,6 +293,13 @@ onMounted(() => {
 .header-actions .icon { width: 15px; height: 15px; }
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filter-select { max-width: 260px; }
+.search-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  display: grid; place-items: center; padding: 4px; border-radius: 6px;
+}
+.search-clear svg { width: 15px; height: 15px; }
+.search-clear:hover { color: var(--danger); background: #fee2e2; }
 .muted { color: var(--muted); }
 .mono { font-family: Consolas, monospace; font-size: 12px; }
 .pagination { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 18px; }

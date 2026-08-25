@@ -30,7 +30,10 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import api from '../api/client'
+import { useProductStore } from '../stores/products'
 import { apiMsg } from '../utils'
+
+const productsStore = useProductStore()
 
 const props = defineProps({ product: { type: Object, required: true } })
 const emit = defineEmits(['close', 'saved'])
@@ -44,6 +47,7 @@ async function submit() {
   error.value = ''
   try {
     await api.post(`/products/${props.product.id}/batches`, form)
+    productsStore.invalidate()
     emit('saved')
     emit('close')
   } catch (e) {

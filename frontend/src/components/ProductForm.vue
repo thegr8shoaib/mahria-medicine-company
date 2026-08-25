@@ -45,11 +45,11 @@
             <input v-model="form.barcode" class="input" />
           </div>
           <div>
-            <label class="label">Sale price (Rs) *</label>
+            <label class="label">{{ isPack ? 'Sale price per item (Rs) *' : 'Sale price (Rs) *' }}</label>
             <input v-model.number="form.price" type="number" min="0" step="0.01" class="input" required />
           </div>
           <div>
-            <label class="label">Cost price (Rs)</label>
+            <label class="label">{{ isPack ? 'Cost price per item (Rs)' : 'Cost price (Rs)' }}</label>
             <input v-model.number="form.cost_price" type="number" min="0" step="0.01" class="input" />
           </div>
           <div>
@@ -61,8 +61,9 @@
               <option value="injection">Injection</option>
               <option value="ointment">Ointment</option>
               <option value="drops">Drops</option>
-              <option value="pack">Pack</option>
+              <option value="pack">Pack (items)</option>
             </select>
+            <p v-if="isPack" class="pack-note">Items per pack is entered at purchase time.</p>
           </div>
           <div>
             <label class="label">Low stock alert</label>
@@ -103,6 +104,8 @@ const distributorId = ref(null)
 const boundCompanies = computed(() =>
   companies.value.filter((c) => !distributorId.value || c.distributor_id === distributorId.value)
 )
+
+const isPack = computed(() => form.unit === 'pack')
 
 const rebindHint = computed(() => {
   const typed = form.company.trim()
@@ -200,6 +203,8 @@ onMounted(async () => {
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .form-span { grid-column: 1 / -1; }
 .rebind-hint { margin-top: 6px; font-size: 12px; color: var(--danger, #dc2626); font-weight: 600; line-height: 1.4; }
+.pack-hint { margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--primary-dark, #1d4ed8); }
+.pack-note { margin-top: 2px; font-size: 12px; color: var(--muted); line-height: 1.4; }
 .check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; cursor: pointer; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 </style>

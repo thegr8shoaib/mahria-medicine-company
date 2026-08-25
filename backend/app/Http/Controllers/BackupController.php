@@ -162,14 +162,16 @@ class BackupController extends Controller
                     $p->variants,
                     $p->unit,
                     (float) $p->price,
+                    (float) $p->trade_price,
                     (float) $p->cost_price,
+                    $p->items_per_pack ?? '',
                     (int) $p->low_stock_alert,
                     (int) $p->stock,
                 ];
             }
             $sheets[] = [
                 'name' => 'Inventory',
-                'headers' => ['Name', 'SKU', 'Barcode', 'Category', 'Company', 'Generic Name', 'Variants', 'Unit', 'Price', 'Cost Price', 'Low Stock Alert', 'Stock'],
+                'headers' => ['Name', 'SKU', 'Barcode', 'Category', 'Company', 'Generic Name', 'Variants', 'Unit', 'Price', 'Trade Price', 'Cost Price', 'Items Per Pack', 'Low Stock Alert', 'Stock'],
                 'rows' => $rows,
             ];
         }
@@ -394,12 +396,16 @@ class BackupController extends Controller
             if ($companyText !== '') {
                 $fields['company'] = $companyText;
             }
-            foreach (['price', 'cost_price', 'low_stock_alert'] as $f) {
+            foreach (['price', 'trade_price', 'cost_price', 'low_stock_alert'] as $f) {
                 $key = $f === 'low_stock_alert' ? 'Low Stock Alert' : ucfirst($f);
                 $raw = (string) ($row[$key] ?? '');
                 if ($raw !== '' && is_numeric($raw)) {
                     $fields[$f] = max(0, (float) $raw);
                 }
+            }
+            $ippRaw = (string) ($row['Items Per Pack'] ?? ($row['Sachets Per Pack'] ?? ''));
+            if ($ippRaw !== '' && is_numeric($ippRaw)) {
+                $fields['items_per_pack'] = max(1, (int) $ippRaw);
             }
 
             if ($product) {

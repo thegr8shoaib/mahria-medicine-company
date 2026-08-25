@@ -8,7 +8,18 @@ Full-stack pharmacy management system built with **Vue 3 + Laravel**. Features i
 - **Frontend:** Vue 3 + Vite, Pinia, Vue Router, Axios
 - **Roles:** Admin (everything), Cashier (POS, customers, products read)
 
-## Quick Start
+## Quick Start (Offline - recommended)
+
+Everything needed to run is **bundled locally** (`tools\php` = portable PHP + Composer,
+`backend\vendor`, `frontend\dist`). No internet, no admin rights, no separate installs.
+
+1. Copy the whole folder to the new PC.
+2. Double-click **`SETUP.bat`** — it configures the app and starts it.
+3. The app opens in the browser automatically.
+
+To just launch it later: double-click **`START.bat`**.
+
+## Developer Setup (online, only for editing source)
 
 ### 1. Backend
 
@@ -29,7 +40,7 @@ npm install
 npm run dev                    # http://localhost:5173 (proxies /api -> :8000)
 ```
 
-Open **http://localhost:5173** and log in:
+Open **http://localhost:5173** and log in (dev only):
 
 | Email                  | Password  | Role    |
 |------------------------|-----------|---------|
@@ -74,6 +85,7 @@ php artisan schedule:run   # add a backup command in Console Kernel
 
 ## Notes
 
+- **Offline package layout:** `tools\php\php.exe` is the bundled PHP 8.5 runtime (uses `tools\php\php.ini`); the Visual C++ runtime DLLs (`vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140*.dll`) ship next to `php.exe` so no redistributable install is needed; `backend\vendor` ships pre-installed Composer packages; `frontend\dist` ships the pre-built app which `SETUP.bat` copies into `backend\public`. Rebuild the bundle on the source machine after editing code (`npm run build`, `composer install`) before copying to a new PC.
 - Local dev uses SQLite (no setup needed). For MySQL, edit `backend/.env`: `DB_CONNECTION=mysql`, `DB_DATABASE`, etc.
 - POS caches products in localStorage-backed Pinia store and refreshes after each sale.
 - Frontend routes are lazy-loaded and code-split (`vendor` chunk).

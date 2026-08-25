@@ -30,6 +30,7 @@
             <td style="text-align:right; font-weight:600">{{ money(p.total_amount) }}</td>
             <td style="text-align:right; white-space: nowrap">
               <button class="btn btn-sm btn-secondary" @click="showDetails(p)"><Eye /></button>
+              <button class="btn btn-sm btn-secondary" @click="editPurchase(p)"><Pencil /></button>
               <button class="btn btn-sm btn-secondary" style="color: var(--danger)" @click="remove(p)"><Trash2 /></button>
             </td>
           </tr>
@@ -45,7 +46,7 @@
 
     <div v-if="showForm" class="modal-overlay">
       <div class="modal card">
-        <h3>New Purchase</h3>
+        <h3>{{ editing ? `Edit Purchase — ${editing.invoice_number}` : 'New Purchase' }}</h3>
         <p v-if="error" class="alert-error">{{ error }}</p>
 
         <div class="row">
@@ -71,24 +72,39 @@
           ({{ availableProducts.length }} of {{ products.length }}).
         </p>
 
-        <div v-for="(item, i) in form.items" :key="i" class="line-item">
-          <select v-model="item.product_id" class="select" required>
-            <option :value="null" disabled>Select product</option>
-            <option v-for="p in availableProducts" :key="p.id" :value="p.id">{{ p.name }} ({{ p.sku }})</option>
-          </select>
-          <input v-model="item.batch_number" class="input" placeholder="Batch #" required />
-          <input v-model="item.expiry_date" type="date" class="input" required />
-          <input v-model.number="item.quantity" type="number" min="1" class="input" placeholder="Qty" required />
-          <input v-model.number="item.unit_cost" type="number" min="0" step="0.01" class="input" placeholder="Unit cost" required />
-          <button type="button" class="btn btn-sm btn-secondary" style="color: var(--danger)" @click="form.items.splice(i, 1)"><Trash2 /></button>
+        <div v-for="(item, i) in form.items" :key="i" class="line-item-wrap">
+          <div class="line-item">
+            <select v-model="item.product_id" class="select" required @change="onProductSelect(item)">
+              <option :value="null" disabled>Select product</option>
+              <option v-for="p in availableProducts" :key="p.id" :value="p.id">{{ p.name }} ({{ p.sku }})</option>
+            </select>
+            <input v-model="item.batch_number" class="input" placeholder="Batch #" required />
+            <input v-model="item.expiry_date" type="date" class="input" required />
+            <input v-model.number="item.quantity" type="number" min="1" class="input" :placeholder="qtyLabel(item)" required />
+            <input
+              v-model.number="item.items_per_pack"
+              type="number" min="0" step="1"
+              class="input"
+              placeholder="Items/pack"
+              :title="'Leave 0/blank for normal items — set > 1 when buying by the pack'"
+            />
+            <input v-model.number="item.unit_cost" type="number" min="0" step="0.01" class="input" :placeholder="costLabel(item)" required />
+            <input v-model.number="item.sale_price" type="number" min="0" step="0.01" class="input" :placeholder="saleLabel(item)" />
+            <button type="button" class="btn btn-sm btn-secondary" style="color: var(--danger)" @click="form.items.splice(i, 1)"><Trash2 /></button>
+          </div>
+          <div v-if="packInfo(item)" class="line-info">{{ packInfo(item) }}</div>
         </div>
 
         <button type="button" class="btn btn-sm btn-secondary" @click="addItem"><Plus /> Add item</button>
 
+        <p class="muted" style="font-size: 12px">
+          Buying by the pack? Enter Items/pack (e.g. 20) and the quantity &amp; cost/sale price are per pack — stock and prices are divided per item automatically.
+        </p>
+
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="showForm = false">Cancel</button>
+          <button class="btn btn-secondary" @click="closeForm">Cancel</button>
           <button class="btn" :disabled="saving" @click="submit">
-            <span v-if="saving" class="spinner" /> Record Purchase
+            <span v-if="saving" class="spinner" /> {{ editing ? 'Update Purchase' : 'Record Purchase' }}
           </button>
         </div>
       </div>
@@ -141,7 +157,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { Eye, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
+import { Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
 import api from '../api/client'
 import { useProductStore } from '../stores/products'
 import { apiMsg, money } from '../utils'
@@ -159,7 +175,8 @@ const to = ref('')
 const showForm = ref(false)
 const saving = ref(false)
 const error = ref('')
-const form = ref({ supplier_id: null, purchase_date: todayIso(), items: [] })
+const editing = ref(null)
+const form = ref({ supplier_id: null, purchase_date: todayIso(), notes: '', items: [] })
 
 const showNewSupplier = ref(false)
 const supSaving = ref(false)
@@ -178,6 +195,42 @@ const availableProducts = computed(() => {
   return list.filter((p) => p.company_model?.distributor_id === selectedSupplier.value.id)
 })
 
+function itemProduct(item) {
+  return products.value.find((p) => p.id === item.product_id) || null
+}
+
+function lineIsPack(item) {
+  return Number(item.items_per_pack) > 1
+}
+
+function qtyLabel(item) {
+  return lineIsPack(item) ? 'Packs' : 'Qty'
+}
+
+function costLabel(item) {
+  return lineIsPack(item) ? 'Trade / pack' : 'Unit cost'
+}
+
+function saleLabel(item) {
+  return lineIsPack(item) ? 'Sale / pack' : 'Sale price'
+}
+
+function onProductSelect(item) {
+  const p = itemProduct(item)
+  if (p && !item.items_per_pack && Number(p.items_per_pack) > 1) {
+    item.items_per_pack = Number(p.items_per_pack)
+  }
+}
+
+function packInfo(item) {
+  if (!lineIsPack(item)) return ''
+  const perPack = Number(item.items_per_pack)
+  const items = item.quantity ? Number(item.quantity) * perPack : '—'
+  const perItemCost = item.unit_cost ? (Number(item.unit_cost) / perPack).toFixed(2) : '—'
+  const perItemSale = item.sale_price ? (Number(item.sale_price) / perPack).toFixed(2) : '—'
+  return `${perPack} items per pack → ${items} items in stock @ cost Rs ${perItemCost}/item · sale Rs ${perItemSale}/item`
+}
+
 watch(() => form.value.supplier_id, () => {
   form.value.items.forEach((it) => (it.product_id = null))
 })
@@ -187,7 +240,7 @@ function todayIso() {
 }
 
 function addItem() {
-  form.value.items.push({ product_id: null, batch_number: '', expiry_date: '', quantity: 1, unit_cost: 0 })
+  form.value.items.push({ product_id: null, batch_number: '', expiry_date: '', quantity: 1, unit_cost: 0, sale_price: 0, items_per_pack: 0 })
 }
 
 async function load(p = 1) {
@@ -218,15 +271,75 @@ async function submit() {
   saving.value = true
   error.value = ''
   try {
-    await api.post('/purchases', form.value)
-    showForm.value = false
-    form.value = { supplier_id: null, purchase_date: todayIso(), items: [] }
+    if (editing.value) {
+      await api.put(`/purchases/${editing.value.id}`, form.value)
+    } else {
+      await api.post('/purchases', form.value)
+    }
+    closeForm()
     productsStore.invalidate()
+    productsStore.ensureLoaded(true).catch(() => {})
     await load()
   } catch (e) {
-    error.value = apiMsg(e, 'Could not record purchase.')
+    error.value = apiMsg(e, 'Could not save purchase.')
   } finally {
     saving.value = false
+  }
+}
+
+function closeForm() {
+  showForm.value = false
+  editing.value = null
+  form.value = { supplier_id: null, purchase_date: todayIso(), notes: '', items: [] }
+}
+
+function openPurchase() {
+  editing.value = null
+  if (!form.value.items.length) addItem()
+  showForm.value = true
+}
+
+function toFormItem(it) {
+  const prod = it.product
+  const perPack = prod ? Number(prod.items_per_pack) || 0 : 0
+  const base = {
+    product_id: it.product_id,
+    batch_number: it.batch?.batch_number || '',
+    expiry_date: it.batch?.expiry_date ? String(it.batch.expiry_date).slice(0, 10) : '',
+    unit_cost: it.unit_cost,
+    sale_price: prod ? Number(prod.price) : 0,
+    items_per_pack: perPack,
+  }
+  if (perPack > 1) {
+    base.quantity = Math.max(1, Math.round(Number(it.quantity) / perPack))
+    base.unit_cost = Number((Number(it.unit_cost) * perPack).toFixed(2))
+    base.sale_price = Number((Number(base.sale_price) * perPack).toFixed(2))
+  } else {
+    base.quantity = it.quantity
+  }
+  return base
+}
+
+async function editPurchase(p) {
+  try {
+    const res = await api.get(`/purchases/${p.id}`)
+    const detail = res.data
+    for (const it of detail.items || []) {
+      const prod = it.product
+      if (prod && !products.value.some((x) => x.id === prod.id)) {
+        products.value.push({ ...prod })
+      }
+    }
+    form.value = {
+      supplier_id: detail.supplier_id,
+      purchase_date: detail.purchase_date ? String(detail.purchase_date).slice(0, 10) : todayIso(),
+      notes: detail.notes || '',
+      items: (detail.items || []).map(toFormItem),
+    }
+    editing.value = detail
+    showForm.value = true
+  } catch (e) {
+    alert(apiMsg(e))
   }
 }
 
@@ -260,15 +373,11 @@ async function remove(p) {
   try {
     await api.delete(`/purchases/${p.id}`)
     productsStore.invalidate()
+    productsStore.ensureLoaded(true).catch(() => {})
     load(page.value)
   } catch (e) {
     alert(apiMsg(e))
   }
-}
-
-function openPurchase() {
-  if (!form.value.items.length) addItem()
-  showForm.value = true
 }
 
 onMounted(async () => {
@@ -288,17 +397,18 @@ onMounted(async () => {
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
   display: grid; place-items: center; z-index: 60; padding: 20px;
 }
-.modal { width: 100%; max-width: 760px; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.modal { width: 100%; max-width: 1040px; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .modal-sm { max-width: 380px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .supplier-actions { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-size: 13px; }
+.line-item-wrap { margin-bottom: 8px; }
 .line-item {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 130px 80px 100px auto;
+  grid-template-columns: 1.3fr 1fr 120px 64px 90px 90px 90px auto;
   gap: 8px;
   align-items: center;
-  margin-bottom: 8px;
 }
+.line-info { margin-top: 4px; font-size: 12px; color: var(--primary-dark, #1d4ed8); font-weight: 600; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 .muted { color: var(--muted); }
 </style>

@@ -78,7 +78,7 @@ class ProductController extends Controller
 
     public function store(ProductRequest $request): JsonResponse
     {
-        $product = Product::create($request->validated());
+        $product = Product::create($this->normalizePack($request->validated()));
 
         return response()->json(['message' => 'Product created.', 'product' => $product->load('batches')], 201);
     }
@@ -94,9 +94,20 @@ class ProductController extends Controller
 
     public function update(ProductRequest $request, Product $product): JsonResponse
     {
-        $product->update($request->validated());
+        $product->update($this->normalizePack($request->validated()));
 
         return response()->json(['message' => 'Product updated.', 'product' => $product->fresh('batches')]);
+    }
+
+    private function normalizePack(array $data): array
+    {
+        $perPack = (int) ($data['items_per_pack'] ?? 0);
+
+        if ($perPack > 0 && array_key_exists('trade_price', $data) && $data['trade_price'] !== null) {
+            $data['cost_price'] = round((float) $data['trade_price'] / $perPack, 2);
+        }
+
+        return $data;
     }
 
     public function destroy(Product $product): JsonResponse
@@ -143,7 +154,7 @@ class ProductController extends Controller
     {
         $products = Product::withSum('batches as stock', 'quantity')->orderBy('name')->get();
 
-        $headers = ['Name', 'SKU', 'Barcode', 'Category', 'Company', 'Generic Name', 'Variant', 'Price', 'Cost Price', 'Unit', 'Low Stock Alert', 'Stock'];
+        $headers = ['Name', 'SKU', 'Barcode', 'Category', 'Company', 'Generic Name', 'Variant', 'Price', 'Trade Price', 'Cost Price', 'Unit', 'Items Per Pack', 'Low Stock Alert', 'Stock'];
         $rows = $products->map(fn (Product $p) => [
             $p->name,
             $p->sku,
@@ -153,8 +164,10 @@ class ProductController extends Controller
             $p->generic_name,
             $p->variants,
             (float) $p->price,
+            (float) $p->trade_price,
             (float) $p->cost_price,
             $p->unit,
+            $p->items_per_pack ?? '',
             (int) $p->low_stock_alert,
             (int) $p->stock,
         ])->toArray();
@@ -215,10 +228,13 @@ class ProductController extends Controller
                     $fields[$f] = (string) $data[$f];
                 }
             }
-            foreach (['price', 'cost_price', 'low_stock_alert'] as $f) {
+            foreach (['price', 'trade_price', 'cost_price', 'low_stock_alert'] as $f) {
                 if ($data[$f] !== '' && $data[$f] !== null) {
                     $fields[$f] = max(0, (float) $data[$f]);
                 }
+            }
+            if (isset($data['items_per_pack']) && $data['items_per_pack'] !== '' && $data['items_per_pack'] !== null) {
+                $fields['items_per_pack'] = max(1, (int) $data['items_per_pack']);
             }
 
             if ($product) {
@@ -277,8 +293,10 @@ class ProductController extends Controller
             'company' => ['company', 'manufacturer', 'brand'],
             'generic_name' => ['generic name', 'generic'],
             'variants' => ['variant', 'variants', 'strength', 'pack size', 'pack'],
-            'price' => ['price', 'sale price', 'selling price', 'retail price'],
-            'cost_price' => ['cost price', 'cost', 'purchase price', 'buying price'],
+            'price' => ['price', 'sale price', 'selling price', 'retail price', 'sale price per sachet', 'price per sachet', 'price per pc'],
+            'trade_price' => ['trade price', 'trade', 'pack price', 'pack purchase price', 'trade price per pack'],
+            'items_per_pack' => ['items per pack', 'item per pack', 'sachets per pack', 'sachet per pack', 'sachets', 'units per pack', 'pieces per pack'],
+            'cost_price' => ['cost price', 'cost', 'purchase price', 'buying price', 'cost per sachet'],
             'unit' => ['unit', 'uom'],
             'low_stock_alert' => ['low stock alert', 'reorder level', 'low stock'],
             'batch_number' => ['batch number', 'batch no', 'batch', 'lot'],

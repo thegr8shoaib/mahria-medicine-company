@@ -110,7 +110,9 @@ export function receiptHtml(sale, { reprinted = false } = {}) {
     .totals div { display: flex; justify-content: space-between; padding: 1px 0; }
     .totals .line { border-bottom: 1px dashed #999; }
     .totals .big { font-weight: 700; font-size: 13px; border-top: 1px solid #444; margin-top: 2px; padding-top: 3px; }
-    .footer { text-align: center; margin-top: 6px; font-size: 10px; }
+    .footer { text-align: center; margin-top: 8px; padding-top: 5px; border-top: 1px solid #444; }
+    .footer .brand { font-weight: 900; font-size: 10.5px; letter-spacing: 1.5px; color: #0b3d5c; }
+    .footer .contact { font-weight: 700; font-size: 10px; margin-top: 1px; letter-spacing: 0.5px; }
     .policy { text-align: center; margin-top: 4px; font-size: 9.5px; font-weight: 800; line-height: 1.25; }
     .raast { text-align: center; margin-top: 7px; }
     .raast-title { font-weight: 900; font-size: 10px; letter-spacing: 1px; margin-bottom: 2px; }
@@ -150,6 +152,10 @@ export function receiptHtml(sale, { reprinted = false } = {}) {
     <div class="policy policy-rtl">فریج والی اشیاء واپس نہیں ہوں گی۔</div>
     <div class="policy policy-rtl">دوائی بل کے ساتھ 7 دن کے اندر واپس یا تبدیل کی جا سکتی ہے۔</div>
     ${raastBlock()}
+    <div class="footer">
+      <div class="brand">POS Software by twobros.pk</div>
+      <div class="contact">Contact 0301-5102370</div>
+    </div>
   </body></html>`
 }
 

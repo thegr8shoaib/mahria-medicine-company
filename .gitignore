@@ -15,6 +15,9 @@ backend/public/hot
 frontend/node_modules/
 frontend/dist/
 
+# PHP runtime
+tools/
+
 # OS junk
 .DS_Store
 Thumbs.db

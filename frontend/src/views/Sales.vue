@@ -114,8 +114,11 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import api from '../api/client'
+import { useProductStore } from '../stores/products'
 import { apiMsg, formatTime, money, paymentLabel, printSaleReceipt, discountPct, RAAST_ID } from '../utils'
 import qrImg from '../assets/QR.png'
+
+const productsStore = useProductStore()
 
 const raastId = RAAST_ID
 const raastQr = qrImg
@@ -169,6 +172,7 @@ async function refundSale(s) {
   if (!confirm(`Refund ${s.invoice_number}? Stock will be restored.`)) return
   try {
     await api.post(`/sales/${s.id}/refund`)
+    productsStore.invalidate()
     load(pagination.value.current_page)
   } catch (e) {
     alert(apiMsg(e))

@@ -12,6 +12,7 @@
           @keyup.enter="addSelectedMatch"
         />
         <button v-if="query" class="icon-btn" @click="query = ''"><X /></button>
+        <button class="icon-btn refresh-btn" title="Refresh stock" @click="refreshStock"><RefreshCw /></button>
       </div>
 
       <div class="pos-filters">
@@ -37,9 +38,10 @@
         >
           <div class="tile-name">{{ p.name }}</div>
           <div class="tile-sub">{{ p.generic_name || p.sku }}</div>
+          <div v-if="Number(p.items_per_pack) > 1" class="tile-pack">1 pack = {{ p.items_per_pack }} items</div>
           <div class="tile-bottom">
-            <span class="tile-price">{{ money(p.price) }}</span>
-            <span class="badge" :class="stockBadgeClass(p)">{{ Number(p.stock) || 0 }} left</span>
+            <span class="tile-price">{{ money(p.price) }}<span class="tile-unit">/{{ saleUnit(p) }}</span></span>
+            <span class="badge" :class="stockBadgeClass(p)">{{ Number(p.stock) || 0 }} {{ unitLabel(Number(p.stock), saleUnit(p)) }} left</span>
           </div>
         </button>
       </div>
@@ -84,7 +86,7 @@
         <div v-for="item in cart" :key="item.product_id" class="cart-row">
           <div class="cart-info">
             <div class="cart-name">{{ item.name }}</div>
-            <div class="cart-price">{{ money(item.unit_price) }} × {{ item.quantity }}</div>
+            <div class="cart-price">{{ money(item.unit_price) }}/{{ item.unit }} × {{ item.quantity }}</div>
           </div>
           <div class="cart-qty">
             <button class="qty-btn" @click="changeQty(item, -1)">−</button>
@@ -188,7 +190,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Trash2, Wallet, X } from 'lucide-vue-next'
+import { RefreshCw, Trash2, Wallet, X } from 'lucide-vue-next'
 import api from '../api/client'
 import { useProductStore } from '../stores/products'
 import { apiMsg, money, paymentLabel, printSaleReceipt, discountPct, RAAST_ID } from '../utils'
@@ -257,7 +259,7 @@ const discountTotal = computed(() =>
 const total = computed(() => Math.max(0, subtotal.value - discountTotal.value))
 
 onMounted(async () => {
-  products.ensureLoaded().catch(() => {})
+  products.ensureLoaded(true).catch(() => {})
   await loadCustomers()
   api.get('/suppliers').then((r) => (distributors.value = r.data)).catch(() => {})
   api.get('/companies').then((r) => (companies.value = r.data)).catch(() => {})
@@ -336,6 +338,15 @@ function stockBadgeClass(p) {
   return stock <= Number(p.low_stock_alert || 0) ? 'badge-amber' : 'badge-green'
 }
 
+function saleUnit(p) {
+  return Number(p.items_per_pack) > 0 ? 'item' : p.unit || ''
+}
+
+function unitLabel(count, unit) {
+  if (!unit) return ''
+  return count === 1 ? unit : `${unit}s`
+}
+
 function addToCart(p) {
   const existing = cart.value.find((i) => i.product_id === p.id)
   if (existing) {
@@ -346,11 +357,17 @@ function addToCart(p) {
       product_id: p.id,
       name: p.name,
       unit_price: price,
+      unit: saleUnit(p),
       quantity: 1,
       max: Number(p.stock),
     })
   }
   discount.value = Math.min(discount.value || 0, 100)
+}
+
+function refreshStock() {
+  error.value = ''
+  products.ensureLoaded(true).catch(() => {})
 }
 
 function addSelectedMatch() {
@@ -369,7 +386,7 @@ function clampQty(item) {
   if (!item.quantity || item.quantity < 1) item.quantity = 1
   if (item.quantity > item.max) {
     item.quantity = item.max
-    error.value = `Only ${item.max} units in stock for ${item.name}.`
+    error.value = `Only ${item.max} ${item.unit || 'units'} in stock for ${item.name}.`
     setTimeout(() => (error.value = ''), 3500)
   }
 }
@@ -432,6 +449,8 @@ function closeReceipt() {
 .pos-search .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
 .pos-search .input { padding-left: 38px; padding-right: 38px; }
 .pos-search .icon-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+.pos-search .refresh-btn { right: 40px; }
+.pos-search .refresh-btn svg { width: 16px; height: 16px; }
 .pos-filters { display: flex; gap: 10px; margin-bottom: 14px; }
 .pos-filters .filter-select { max-width: 240px; }
 
@@ -454,6 +473,8 @@ function closeReceipt() {
 .tile-sub { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
 .tile-price { font-weight: 700; color: var(--primary-dark); font-size: 13.5px; }
+.tile-unit { font-weight: 500; font-size: 10.5px; color: var(--muted); }
+.tile-pack { font-size: 10.5px; color: var(--primary-dark); font-weight: 700; }
 
 .pos-cart { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 14px; }
 .cart-head { display: flex; justify-content: space-between; align-items: center; }

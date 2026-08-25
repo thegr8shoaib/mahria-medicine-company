@@ -24,8 +24,10 @@ class ProductRequest extends FormRequest
             'sku' => ['required', 'string', 'max:50', Rule::unique('products', 'sku')->ignore($this->route('product'))],
             'barcode' => ['nullable', 'string', 'max:100'],
             'price' => ['required', 'numeric', 'min:0'],
+            'trade_price' => ['nullable', 'numeric', 'min:0'],
             'cost_price' => ['nullable', 'numeric', 'min:0'],
             'unit' => ['required', Rule::in(['tablet', 'capsule', 'syrup', 'injection', 'ointment', 'drops', 'pack'])],
+            'items_per_pack' => ['nullable', 'integer', 'min:1'],
             'low_stock_alert' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ];
